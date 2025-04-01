@@ -1,0 +1,4 @@
+ssh_username        = "root"
+ssh_private_key_path = "id_ed25519"
+ssh_host            = "your-server-hostname-or-ip"
+ssh_port            = 22 

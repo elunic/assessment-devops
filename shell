@@ -1,0 +1,81 @@
+#!/bin/bash
+
+## CONFIGURATION
+# CHANGE THESE VALUES FOR YOUR PROJECT
+
+COMPOSE_PROJECT=devops-challenge
+COMPOSE_FILES=(
+  "docker-compose.shell.yml"
+)
+
+## END CONFIGURATION
+
+export COMPOSE_PROJECT_NAME="${COMPOSE_PROJECT}"
+
+# Used to give the container a specific name to use with the "join" command
+SHELL_CONTAINER_NAME="${COMPOSE_PROJECT}-app"
+FILE_ARGS=()
+for FILE in "${COMPOSE_FILES[@]}"; do
+  FILE_ARGS+=(-f "${FILE}")
+done
+
+platform_specific_build() {
+  local NO_CACHE_OPTION=""
+  if [[ "$1" == "no-cache" ]]; then
+    NO_CACHE_OPTION="--no-cache"
+  fi
+
+  if [ "$(uname -m)" == "arm64" ]; then
+    COMPOSE_DOCKER_CLI_BUILD=1 \
+      DOCKER_BUILDKIT=1 \
+      DOCKER_DEFAULT_PLATFORM=linux/amd64 \
+      docker compose "${FILE_ARGS[@]}" build $NO_CACHE_OPTION
+  else
+    docker compose "${FILE_ARGS[@]}" build $NO_CACHE_OPTION
+  fi
+}
+
+case "$1" in
+    # not an official command, but makes this file easier to read. Called by running the script with no command.
+    start)
+      # Call without --no-cache
+      platform_specific_build \
+      && docker compose "${FILE_ARGS[@]}" run \
+              --name="${SHELL_CONTAINER_NAME}" \
+              --rm \
+              -u 1000 \
+              --service-ports \
+              app \
+              bash \
+              || true \
+      && echo Stopping environment... \
+      && ./shell stop
+      ;;
+
+    build)
+      # Call with --no-cache
+      platform_specific_build "no-cache"
+      ;;
+
+    pull)
+      docker compose "${FILE_ARGS[@]}" pull --ignore-pull-failures
+      ;;
+
+    join)
+      docker exec -it "${SHELL_CONTAINER_NAME}" bash
+      ;;
+
+    stop)
+      # First stop and remove the named container if it exists
+      docker stop "${SHELL_CONTAINER_NAME}" 2>/dev/null || true
+      docker rm -f "${SHELL_CONTAINER_NAME}" 2>/dev/null || true
+      # Then clean up with docker compose
+      docker compose "${FILE_ARGS[@]}" stop \
+      && docker compose "${FILE_ARGS[@]}" rm -v -f \
+      && docker compose "${FILE_ARGS[@]}" down
+      ;;
+
+    *)
+      ./shell start
+      ;;
+esac

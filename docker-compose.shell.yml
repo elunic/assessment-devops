@@ -1,0 +1,23 @@
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: dockershell
+      args:
+        TERRAFORM_VERSION: 1.5.7
+        HCLOUD_VERSION: 1.50.0
+        KUBECTL_VERSION: 1.31.0
+    # Makes the docker container/image list easier to read
+    image: ${COMPOSE_PROJECT_NAME:-devops-challenge}-dockershell
+    # This gives us a nice name for the host in the container shell instead of app@dfeb636a
+    hostname: ${COMPOSE_PROJECT_NAME:-devops-challenge}-dockershell
+    restart: 'no'
+    working_dir: /app/devops-challenge/
+    volumes:
+      - ./:/app/devops-challenge/
+      - ~/.kube/:/home/application/.kube/
+      # For hcloud configuration
+      - ~/.config/hcloud/:/home/application/.config/hcloud/
+    stdin_open: true
+    tty: true
